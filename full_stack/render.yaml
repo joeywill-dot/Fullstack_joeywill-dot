@@ -8,11 +8,11 @@ services:
     startCommand: npm --workspace apps/api run start
     healthCheckPath: /health
     envVars:
-      - key: https://pvrggtslrmznfkodzexl.supabase.co
-        sync: false
-      - key: sb_publishable_kBpfFZRf4Y7IhiMidngmVA_j9pAzFX-
-        sync: false
-      - key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB2cmdndHNscm16bmZrb2R6ZXhsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MjAzNjkwNiwiZXhwIjoyMDg3NjEyOTA2fQ.uVs43910AII1G-kMKXVhZlpCkmDu66Z9AqqheZsc1g0
-        sync: false
+      - key: SUPABASE_URL
+        value: https://pvrggtslrmznfkodzexl.supabase.co
+      - key: SUPABASE_ANON_KEY
+        value: sb_publishable_kBpfFZRf4Y7IhiMidngmVA_j9pAzFX-
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB2cmdndHNscm16bmZrb2R6ZXhsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MjAzNjkwNiwiZXhwIjoyMDg3NjEyOTA2fQ.uVs43910AII1G-kMKXVhZlpCkmDu66Z9AqqheZsc1g0
       - key: CORS_ORIGINS
-        sync: false
+        value: <your-cors-origins>
