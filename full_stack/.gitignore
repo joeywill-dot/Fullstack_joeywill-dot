@@ -3,3 +3,8 @@
 *.env.local
 apps/api/.env
 apps/web/.env.local
+
+# Build outputs
+dist/
+*.tsbuildinfo
+node_modules/
