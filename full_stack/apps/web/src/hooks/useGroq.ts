@@ -13,7 +13,7 @@ interface UseGroqOptions {
 
 export function useGroq(options: UseGroqOptions = {}) {
   const {
-    model = "mixtral-8x7b-32768",
+    model = "llama-3.3-70b-versatile",
     maxTokens = 1024,
   } = options;
 

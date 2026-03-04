@@ -11,7 +11,7 @@ export function ChatComponent() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const { sendMessage, loading, error } = useGroq({
-    model: "mixtral-8x7b-32768",
+    model: "llama-3.3-70b-versatile",
     maxTokens: 1024,
   });
 
