@@ -1,4 +1,5 @@
 import { FormEvent, useMemo, useState } from "react";
+import { ChatComponent } from "./components/ChatComponent";
 
 type AuthMode = "signup" | "login";
 type UserRole = "admin" | "member";
@@ -490,6 +491,12 @@ export default function App() {
 
         {status && <p className="status">{status}</p>}
       </section>
+
+      {accessToken && (
+        <section className="chat-section">
+          <ChatComponent />
+        </section>
+      )}
     </main>
   );
 }

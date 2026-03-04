@@ -47,7 +47,7 @@ export function ChatComponent() {
   return (
     <div className="chat-container">
       <div className="chat-header">
-        <h1>Groq Chat</h1>
+        <h2>AI Assistant</h2>
         {error && <p className="error-message">{error}</p>}
       </div>
 
