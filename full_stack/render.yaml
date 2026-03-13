@@ -3,7 +3,7 @@ services:
     name: community-classes-api
     runtime: node
     plan: free
-    rootDir: .
+    rootDir: full_stack
     buildCommand: npm --workspace apps/api run build
     startCommand: npm --workspace apps/api run start
     healthCheckPath: /health
