@@ -26,13 +26,53 @@ type AuthResponse = {
   message?: string;
   accessToken?: string | null;
   role?: UserRole;
+  code?: string;
+  details?: unknown;
 };
 
 const envApiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? "").trim();
 const apiBaseUrl = (envApiBaseUrl || "http://localhost:4000").replace(/\/$/, "");
 
+const productionApiMisconfigured =
+  import.meta.env.PROD && (!envApiBaseUrl || /localhost|127\.0\.0\.1/i.test(apiBaseUrl));
+
 function apiUrl(path: string) {
   return `${apiBaseUrl}${path}`;
+}
+
+function describeApiFailure(data: AuthResponse, httpStatus: number) {
+  const label = data.code ?? `HTTP_${httpStatus}`;
+  const msg = data.error ?? "Request failed.";
+  return `[${label}] ${msg}`;
+}
+
+async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
+  const url = apiUrl(path);
+  const method = (init?.method ?? "GET").toUpperCase();
+  try {
+    return await fetch(url, init);
+  } catch (err) {
+    const name = err instanceof Error ? err.message : String(err);
+    const hints: string[] = [];
+    if (productionApiMisconfigured) {
+      hints.push(
+        "Set VITE_API_BASE_URL in your Vercel project to the public origin of your API (no trailing slash), then redeploy. The default localhost URL cannot work in production."
+      );
+    }
+    if (
+      typeof window !== "undefined" &&
+      window.location.protocol === "https:" &&
+      url.startsWith("http:")
+    ) {
+      hints.push(
+        "This page is HTTPS but the API URL is http — the browser may block that (mixed content). Use an https API URL."
+      );
+    }
+    hints.push(
+      "If the API is on another domain, ensure CORS_ORIGINS on the server includes this site's exact origin."
+    );
+    throw new Error(`[NETWORK] ${name} (${method} ${url}). ${hints.join(" ")}`);
+  }
 }
 
 async function parseApiJson<T>(response: Response): Promise<T> {
@@ -43,13 +83,16 @@ async function parseApiJson<T>(response: Response): Promise<T> {
   }
 
   const body = await response.text();
+  const preview = body.slice(0, 120).replace(/\s+/g, " ");
   if (body.trimStart().startsWith("<!DOCTYPE")) {
     throw new Error(
-      "Received HTML instead of API JSON. Verify VITE_API_BASE_URL (no trailing slash) and that the API is reachable."
+      `[ERR_NON_JSON_HTML] Status ${response.status}. Received HTML instead of JSON — wrong VITE_API_BASE_URL or API not running. URL tried: ${response.url || apiBaseUrl}`
     );
   }
 
-  throw new Error(`Unexpected response from API (${response.status}).`);
+  throw new Error(
+    `[ERR_NON_JSON] Status ${response.status}. Expected JSON; got "${contentType || "unknown"}". Body starts: ${preview}`
+  );
 }
 
 function roleTitle(role: UserRole) {
@@ -89,7 +132,7 @@ export default function App() {
   async function loadAdminClasses(token: string) {
     setClassesLoading(true);
     try {
-      const response = await fetch(apiUrl("/api/admin/classes"), {
+      const response = await apiFetch("/api/admin/classes", {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -98,7 +141,7 @@ export default function App() {
       const data = await parseApiJson<CommunityClass[] | AuthResponse>(response);
       if (!response.ok) {
         const errorData = data as AuthResponse;
-        throw new Error(errorData.error ?? "Could not load classes.");
+        throw new Error(describeApiFailure(errorData, response.status));
       }
 
       setAdminClasses(data as CommunityClass[]);
@@ -110,7 +153,7 @@ export default function App() {
   async function loadMemberClasses(token: string) {
     setClassesLoading(true);
     try {
-      const response = await fetch(apiUrl("/api/member/classes"), {
+      const response = await apiFetch("/api/member/classes", {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -119,7 +162,7 @@ export default function App() {
       const data = await parseApiJson<MemberClass[] | AuthResponse>(response);
       if (!response.ok) {
         const errorData = data as AuthResponse;
-        throw new Error(errorData.error ?? "Could not load classes.");
+        throw new Error(describeApiFailure(errorData, response.status));
       }
 
       setMemberClasses(data as MemberClass[]);
@@ -146,7 +189,7 @@ export default function App() {
       const endpoint = authMode === "signup" ? "/api/auth/signup" : "/api/auth/login";
       const payload = { email, password };
 
-      const response = await fetch(apiUrl(endpoint), {
+      const response = await apiFetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -157,7 +200,7 @@ export default function App() {
       const data = await parseApiJson<AuthResponse>(response);
 
       if (!response.ok) {
-        setStatus(data.error ?? "Authentication failed.");
+        setStatus(describeApiFailure(data, response.status));
         return;
       }
 
@@ -214,7 +257,7 @@ export default function App() {
     setStatus("");
 
     try {
-      const response = await fetch(apiUrl("/api/admin/classes"), {
+      const response = await apiFetch("/api/admin/classes", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -232,7 +275,7 @@ export default function App() {
 
       const data = await parseApiJson<AuthResponse>(response);
       if (!response.ok) {
-        setStatus(data.error ?? "Class creation failed.");
+        setStatus(describeApiFailure(data, response.status));
         return;
       }
 
@@ -265,7 +308,7 @@ export default function App() {
     setStatus("");
 
     try {
-      const response = await fetch(apiUrl("/api/member/registrations"), {
+      const response = await apiFetch("/api/member/registrations", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -276,7 +319,7 @@ export default function App() {
 
       const data = await parseApiJson<AuthResponse>(response);
       if (!response.ok) {
-        setStatus(data.error ?? "Registration failed.");
+        setStatus(describeApiFailure(data, response.status));
         return;
       }
 
@@ -308,6 +351,12 @@ export default function App() {
           <div>
             <h1>{dashboardTitle}</h1>
             <p>Local programs for neighbors, families, and lifelong learners.</p>
+            {productionApiMisconfigured && (
+              <p className="status" role="alert">
+                Configuration: this build is still using the default API URL ({apiBaseUrl}). Set
+                VITE_API_BASE_URL to your deployed API origin in Vercel, then redeploy.
+              </p>
+            )}
           </div>
           {accessToken && (
             <button type="button" className="ghost" onClick={logout}>

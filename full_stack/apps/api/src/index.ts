@@ -13,6 +13,20 @@ type AuthResponse = {
   message?: string;
 };
 
+function jsonErr(
+  res: Response,
+  status: number,
+  error: string,
+  code: string,
+  extra?: Record<string, unknown>
+) {
+  const payload: Record<string, unknown> = { error, code };
+  if (extra) {
+    Object.assign(payload, extra);
+  }
+  res.status(status).json(payload);
+}
+
 type AuthenticatedUser = {
   id: string;
   role: UserRole;
@@ -142,25 +156,25 @@ async function requireUser(
   const token = readBearerToken(request);
 
   if (!token) {
-    response.status(401).json({ error: "Missing Bearer token" });
+    jsonErr(response, 401, "Missing Bearer token", "MISSING_BEARER_TOKEN");
     return null;
   }
 
   const { data, error } = await authClient.auth.getUser(token);
 
   if (error || !data.user) {
-    response.status(401).json({ error: "Invalid or expired token" });
+    jsonErr(response, 401, "Invalid or expired token", "INVALID_OR_EXPIRED_TOKEN");
     return null;
   }
 
   const role = await fetchUserRole(data.user.id);
   if (!role) {
-    response.status(403).json({ error: "No user role found for this account." });
+    jsonErr(response, 403, "No user role found for this account.", "NO_USER_ROLE");
     return null;
   }
 
   if (allowedRoles && !allowedRoles.includes(role)) {
-    response.status(403).json({ error: "Insufficient role permissions." });
+    jsonErr(response, 403, "Insufficient role permissions.", "INSUFFICIENT_ROLE");
     return null;
   }
 
@@ -186,7 +200,7 @@ app.post("/api/auth/signup", async (request, response) => {
   const parsed = signupSchema.safeParse(request.body);
 
   if (!parsed.success) {
-    response.status(400).json({ error: "Invalid signup payload" });
+    jsonErr(response, 400, "Invalid signup payload", "INVALID_SIGNUP_BODY");
     return;
   }
 
@@ -196,15 +210,14 @@ app.post("/api/auth/signup", async (request, response) => {
   });
 
   if (error) {
-    response.status(400).json({ error: error.message });
+    jsonErr(response, 400, error.message, "SUPABASE_SIGNUP_REJECTED");
     return;
   }
 
   if (data.user?.id) {
     const userError = await upsertUserRole(data.user.id, "member");
     if (userError) {
-      response.status(500).json({
-        error: "Account created but user role could not be saved.",
+      jsonErr(response, 500, "Account created but user role could not be saved.", "ROLE_SAVE_FAILED", {
         details: userError.message
       });
       return;
@@ -224,7 +237,7 @@ app.post("/api/auth/login", async (request, response) => {
   const parsed = loginSchema.safeParse(request.body);
 
   if (!parsed.success) {
-    response.status(400).json({ error: "Invalid login payload" });
+    jsonErr(response, 400, "Invalid login payload", "INVALID_LOGIN_BODY");
     return;
   }
 
@@ -234,14 +247,14 @@ app.post("/api/auth/login", async (request, response) => {
   });
 
   if (error || !data.session) {
-    response.status(401).json({ error: error?.message ?? "Login failed" });
+    jsonErr(response, 401, error?.message ?? "Login failed", "LOGIN_REJECTED");
     return;
   }
 
   const role = await fetchUserRole(data.user.id);
 
   if (!role) {
-    response.status(403).json({ error: "No user role found for this account." });
+    jsonErr(response, 403, "No user role found for this account.", "NO_USER_ROLE");
     return;
   }
 
@@ -277,7 +290,7 @@ app.get("/api/admin/classes", async (request, response) => {
     .order("starts_at", { ascending: true });
 
   if (error) {
-    response.status(500).json({ error: error.message });
+    jsonErr(response, 500, error.message, "ADMIN_CLASSES_LIST_FAILED");
     return;
   }
 
@@ -293,8 +306,7 @@ app.post("/api/admin/classes", async (request, response) => {
   const parsed = createClassSchema.safeParse(request.body);
 
   if (!parsed.success) {
-    response.status(400).json({
-      error: "Invalid class payload",
+    jsonErr(response, 400, "Invalid class payload", "INVALID_CLASS_BODY", {
       details: parsed.error.flatten()
     });
     return;
@@ -317,7 +329,7 @@ app.post("/api/admin/classes", async (request, response) => {
     .single();
 
   if (error) {
-    response.status(500).json({ error: error.message });
+    jsonErr(response, 500, error.message, "CLASS_CREATE_FAILED");
     return;
   }
 
@@ -336,7 +348,7 @@ app.get("/api/member/classes", async (request, response) => {
     .order("starts_at", { ascending: true });
 
   if (classesError) {
-    response.status(500).json({ error: classesError.message });
+    jsonErr(response, 500, classesError.message, "MEMBER_CLASSES_LIST_FAILED");
     return;
   }
 
@@ -346,7 +358,7 @@ app.get("/api/member/classes", async (request, response) => {
     .eq("member_id", user.id);
 
   if (registrationsError) {
-    response.status(500).json({ error: registrationsError.message });
+    jsonErr(response, 500, registrationsError.message, "MEMBER_REGISTRATIONS_LOAD_FAILED");
     return;
   }
 
@@ -357,7 +369,7 @@ app.get("/api/member/classes", async (request, response) => {
     .select("class_id");
 
   if (allRegistrationsError) {
-    response.status(500).json({ error: allRegistrationsError.message });
+    jsonErr(response, 500, allRegistrationsError.message, "REGISTRATION_COUNTS_LOAD_FAILED");
     return;
   }
 
@@ -385,7 +397,7 @@ app.post("/api/member/registrations", async (request, response) => {
   const parsed = registerSchema.safeParse(request.body);
 
   if (!parsed.success) {
-    response.status(400).json({ error: "Invalid registration payload" });
+    jsonErr(response, 400, "Invalid registration payload", "INVALID_REGISTRATION_BODY");
     return;
   }
 
@@ -396,12 +408,12 @@ app.post("/api/member/registrations", async (request, response) => {
     .maybeSingle();
 
   if (classError) {
-    response.status(500).json({ error: classError.message });
+    jsonErr(response, 500, classError.message, "CLASS_LOOKUP_FAILED");
     return;
   }
 
   if (!classRecord) {
-    response.status(404).json({ error: "Class not found" });
+    jsonErr(response, 404, "Class not found", "CLASS_NOT_FOUND");
     return;
   }
 
@@ -413,12 +425,12 @@ app.post("/api/member/registrations", async (request, response) => {
     .maybeSingle();
 
   if (existingRegistrationError) {
-    response.status(500).json({ error: existingRegistrationError.message });
+    jsonErr(response, 500, existingRegistrationError.message, "EXISTING_REGISTRATION_CHECK_FAILED");
     return;
   }
 
   if (existingRegistration) {
-    response.status(409).json({ error: "You are already registered for this class." });
+    jsonErr(response, 409, "You are already registered for this class.", "ALREADY_REGISTERED");
     return;
   }
 
@@ -428,12 +440,12 @@ app.post("/api/member/registrations", async (request, response) => {
     .eq("class_id", parsed.data.classId);
 
   if (countError) {
-    response.status(500).json({ error: countError.message });
+    jsonErr(response, 500, countError.message, "CLASS_CAPACITY_COUNT_FAILED");
     return;
   }
 
   if ((count ?? 0) >= classRecord.capacity) {
-    response.status(409).json({ error: "This class is full." });
+    jsonErr(response, 409, "This class is full.", "CLASS_FULL");
     return;
   }
 
@@ -442,7 +454,7 @@ app.post("/api/member/registrations", async (request, response) => {
     .insert({ class_id: parsed.data.classId, member_id: user.id });
 
   if (insertError) {
-    response.status(500).json({ error: insertError.message });
+    jsonErr(response, 500, insertError.message, "REGISTRATION_INSERT_FAILED");
     return;
   }
 
