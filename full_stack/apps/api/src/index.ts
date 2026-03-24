@@ -225,8 +225,7 @@ app.post("/api/auth/signup", async (request, response) => {
   }
 
   response.status(201).json({
-    message:
-      "Account created. Check your email if confirmation is required by your Supabase auth settings.",
+    message: "Account created.",
     userId: data.user?.id ?? null,
     accessToken: data.session?.access_token ?? null,
     role: "member" as UserRole
