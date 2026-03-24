@@ -15,4 +15,4 @@ services:
       - key: SUPABASE_SERVICE_ROLE_KEY
         value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB2cmdndHNscm16bmZrb2R6ZXhsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MjAzNjkwNiwiZXhwIjoyMDg3NjEyOTA2fQ.uVs43910AII1G-kMKXVhZlpCkmDu66Z9AqqheZsc1g0
       - key: CORS_ORIGINS
-        value: <your-cors-origins>
+        value: https://fullstack-joeywill-dot.vercel.app,http://localhost:5173
